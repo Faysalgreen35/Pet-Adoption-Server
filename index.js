@@ -179,6 +179,7 @@ async function run() {
       const result = await petListCollection.findOne(query)
       res.send(result);
     })
+   
 
     app.patch('/petList/:id', async (req, res) => {
       const item = req.body;
@@ -198,7 +199,7 @@ async function run() {
     })
 
 
-    app.delete('/menu/:id', verifyToken, verifyAdmin, async (req, res) => {
+    app.delete('/petList/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await petListCollection.deleteOne(query);
@@ -216,21 +217,40 @@ async function run() {
     // donate collection
     app.post('/donate', async (req, res) => {
       const cartItem = req.body;
-      const result = await donateCollection.insertOne(cartItem)
+      const result = await donateCampaignCollection.insertOne(cartItem)
       res.send(result);
     })
 
     app.get('/donate', async (req, res) => {
-      const email = req.query.email;
-      const query = { email: email };
-      const result = await donateCollection.find(query).toArray();
+      const limit = parseInt(req.query.limit) || 3; // Default limit to 3 items
+      const offset = parseInt(req.query.offset) || 0;
+      let query = {};
+
+      // Search by name
+      if (req.query.name) {
+        query.name = { $regex: req.query.name, $options: 'i' }; // Case-insensitive regex search
+      }
+
+      // Filter by category
+      // if (req.query.category) {
+      //   query.category = req.query.category;
+      // }
+
+      const result = await donateCampaignCollection.find(query).skip(offset).limit(limit).toArray();
       res.send(result);
+    })
+
+    app.get('/donate/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await donateCampaignCollection.findOne(query)
+      res.send(result); 
     })
 
     app.delete('/donate/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
-      const result = await donateCollection.deleteOne(query);
+      const result = await donateCampaignCollection.deleteOne(query);
       res.send(result);
 
     });
