@@ -30,6 +30,7 @@ async function run() {
 
     const userCollection = client.db("petAdoptionDb").collection("users")
     const petListCollection = client.db("petAdoptionDb").collection("petLists")
+    const adoptRequestCollection = client.db("petAdoptionDb").collection("adoptRequests")
     const donateCampaignCollection = client.db("petAdoptionDb").collection("donateCampaigns")
 
     // JWT related api 
@@ -101,7 +102,7 @@ async function run() {
     })
 
 
-    //send user database
+    //create user database
 
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -167,19 +168,50 @@ async function run() {
       if (req.query.category) {
         query.category = req.query.category;
       }
+      try {
+        const result = await petListCollection.find(query)
+          .sort({ createdDate: -1 }) // Sort by createdDate in descending order
+          .skip(offset)
+          .limit(limit)
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: 'An error occurred', error: err });
+      }
+    });
 
-      const result = await petListCollection.find(query).skip(offset).limit(limit).toArray();
-      res.send(result);
+    // // GET API endpoint to retrieve pet lists for a specific user
+    // app.get('/petListEmail', async (req, res) => {
+    //   const email = req.query.email;
+    //   const query = { createdBy: email };
+    //   const result = await petListCollection.find(query).toArray();
+    //   res.send(result);
+    // })
+
+    // GET API endpoint to retrieve pet lists for a specific user with sorting
+    app.get('/petListEmail', async (req, res) => {
+      try {
+        const email = req.query.email;
+        const sortBy = req.query.sortBy; // Field to sort by
+        const sortDirection = req.query.sortDirection || 'asc'; // Sort direction (default: ascending)
+
+        // Construct query
+        const query = { createdBy: email };
+        const sortQuery = {};
+        sortQuery[sortBy] = sortDirection === 'desc' ? -1 : 1; // Sort direction
+
+        // Fetch and sort pet lists
+        const result = await petListCollection.find(query).sort(sortQuery).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching pet lists:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
 
 
-    app.get('/petList/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await petListCollection.findOne(query)
-      res.send(result);
-    })
-   
+    // update  petList
 
     app.patch('/petList/:id', async (req, res) => {
       const item = req.body;
@@ -187,11 +219,14 @@ async function run() {
       const filter = { _id: new ObjectId(id) }
       const updatedDoc = {
         $set: {
+         
           name: item.name,
+          age: item.age,
           category: item.category,
-          price: item.price,
-          recipe: item.recipe,
-          image: item.image
+          location: item.location,
+          shortDescription: item.shortDescription,
+          longDescription: item.longDescription,
+          image: item.image,
         }
       }
       const result = await petListCollection.updateOne(filter, updatedDoc);
@@ -199,6 +234,52 @@ async function run() {
     })
 
 
+
+    // pet list save to database
+    app.post('/petList', async (req, res) => {
+      const item = req.body;
+      const result = await petListCollection.insertOne(item);;
+      res.send(result);
+    })
+
+  // pet list by id
+    app.get('/petList/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await petListCollection.findOne(query)
+      res.send(result);
+    })
+
+    
+   
+
+app.get('/petList/:id', async (req, res) => {
+    const id = req.params.id;
+    
+    // Validate ObjectId
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ error: 'Invalid ObjectId format' });
+    }
+
+    try {
+        const query = { _id: new ObjectId(id) };
+        const result = await petListCollection.findOne(query);
+        
+        if (!result) {
+            return res.status(404).send({ error: 'Pet not found' });
+        }
+
+        res.send(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: 'Internal Server Error' });
+    }
+});
+
+
+    
+
+  // delete a data of petList
     app.delete('/petList/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
@@ -206,10 +287,10 @@ async function run() {
       res.send(result);
 
     })
-
-    app.post('/petList', verifyToken, verifyAdmin, async (req, res) => {
+    // adopt request save to database
+    app.post('/adoptRequests', async (req, res) => {
       const item = req.body;
-      const result = await petListCollection.insertOne(item);;
+      const result = await adoptRequestCollection.insertOne(item);;
       res.send(result);
     })
 
@@ -221,30 +302,48 @@ async function run() {
       res.send(result);
     })
 
+    // app.get('/donate', async (req, res) => {
+    //   const limit = parseInt(req.query.limit) || 3; // Default limit to 3 items
+    //   const offset = parseInt(req.query.offset) || 0;
+    //   let query = {};
+
+    //   // Search by name
+    //   if (req.query.name) {
+    //     query.name = { $regex: req.query.name, $options: 'i' }; // Case-insensitive regex search
+    //   }
+
+    //   // Filter by category
+    //   // if (req.query.category) {
+    //   //   query.category = req.query.category;
+    //   // }
+
+    //   const result = await donateCampaignCollection.find(query).skip(offset).limit(limit).toArray();
+    //   res.send(result);
+    // })
+
     app.get('/donate', async (req, res) => {
-      const limit = parseInt(req.query.limit) || 3; // Default limit to 3 items
+      const limit = parseInt(req.query.limit) || 3;
       const offset = parseInt(req.query.offset) || 0;
       let query = {};
 
-      // Search by name
-      if (req.query.name) {
-        query.name = { $regex: req.query.name, $options: 'i' }; // Case-insensitive regex search
+      try {
+        const result = await donateCampaignCollection.find(query)
+          .sort({ createdDate: -1 })
+          .skip(offset)
+          .limit(limit)
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: 'An error occurred', error: err });
       }
+    });
 
-      // Filter by category
-      // if (req.query.category) {
-      //   query.category = req.query.category;
-      // }
-
-      const result = await donateCampaignCollection.find(query).skip(offset).limit(limit).toArray();
-      res.send(result);
-    })
 
     app.get('/donate/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await donateCampaignCollection.findOne(query)
-      res.send(result); 
+      res.send(result);
     })
 
     app.delete('/donate/:id', async (req, res) => {
