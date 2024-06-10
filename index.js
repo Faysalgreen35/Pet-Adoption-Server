@@ -3,7 +3,7 @@ const cors = require('cors');
 const app = express();
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 // middleware 
@@ -77,7 +77,7 @@ async function run() {
 
 
     // user related api 
-    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+    app.get('/users/admin/:email',verifyToken, async (req, res) => {
 
       const email = req.params.email;
       if (email !== req.decoded.email) {
@@ -95,7 +95,7 @@ async function run() {
 
 
     //users api
-    app.get('/users', async (req, res) => {
+    app.get('/users',verifyToken, verifyAdmin, async (req, res) => {
 
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -219,7 +219,7 @@ async function run() {
       const filter = { _id: new ObjectId(id) }
       const updatedDoc = {
         $set: {
-         
+
           name: item.name,
           age: item.age,
           category: item.category,
@@ -233,6 +233,45 @@ async function run() {
       res.send(result);
     })
 
+    // // adopted value become true
+    // app.put('/petList/:id',verifyToken, async (req, res) => {
+    //   const id = req.params.id;
+    //   const adoptedValue = req.body.adopted; // Assuming the request body contains the adopted field
+
+    //   const filter = { _id: new ObjectId(id) };
+    //   const updatedDoc = {
+    //     $set: {
+    //       adopted: adoptedValue
+    //     }
+    //   };
+
+    //   const result = await petListCollection.updateOne(filter, updatedDoc);
+
+    //   res.send(result);
+    // });
+
+    // adopted value become true
+    app.put('/petList/:id', verifyToken, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const adoptedValue = req.body.adopted;
+
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            adopted: adoptedValue
+          }
+        };
+
+        const result = await petListCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      } catch (error) {
+        console.error('Error updating adoption status:', error);
+        res.status(500).send('Error updating adoption status');
+      }
+    });
+
+
 
 
     // pet list save to database
@@ -242,7 +281,7 @@ async function run() {
       res.send(result);
     })
 
-  // pet list by id
+    // pet list by id
     app.get('/petList/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
@@ -250,43 +289,44 @@ async function run() {
       res.send(result);
     })
 
-    
-   
 
-app.get('/petList/:id', async (req, res) => {
-    const id = req.params.id;
-    
-    // Validate ObjectId
-    if (!ObjectId.isValid(id)) {
+
+
+    app.get('/petList/:id', async (req, res) => {
+      const id = req.params.id;
+
+      // Validate ObjectId
+      if (!ObjectId.isValid(id)) {
         return res.status(400).send({ error: 'Invalid ObjectId format' });
-    }
+      }
 
-    try {
+      try {
         const query = { _id: new ObjectId(id) };
         const result = await petListCollection.findOne(query);
-        
+
         if (!result) {
-            return res.status(404).send({ error: 'Pet not found' });
+          return res.status(404).send({ error: 'Pet not found' });
         }
 
         res.send(result);
-    } catch (error) {
+      } catch (error) {
         console.error(error);
         res.status(500).send({ error: 'Internal Server Error' });
-    }
-});
+      }
+    });
 
 
-    
 
-  // delete a data of petList
-    app.delete('/petList/:id', verifyToken, verifyAdmin, async (req, res) => {
+
+    // delete a data of petList
+    app.delete('/petList/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await petListCollection.deleteOne(query);
       res.send(result);
 
     })
+
     // adopt request save to database
     app.post('/adoptRequests', async (req, res) => {
       const item = req.body;
@@ -294,33 +334,153 @@ app.get('/petList/:id', async (req, res) => {
       res.send(result);
     })
 
+    app.get('/adoptRequests', async (req, res) => {
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = parseInt(req.query.offset) || 0;
+      let query = {};
 
-    // donate collection
+      try {
+        const result = await adoptRequestCollection.find(query)
+
+          .skip(offset)
+          .limit(limit)
+          .toArray();
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: 'An error occurred', error: err });
+      }
+    });
+
+
+    // app.get('/userAdoptionRequests', async (req, res) => {
+    //   try {
+
+    //     const result = await adoptRequestCollection.aggregate{[]}
+    //     const db = client.db('petAdoptionDb');
+    //     const petListCollection = db.collection('petLists');
+    //     const adoptRequestCollection = db.collection('adoptRequests');
+    
+    //     const currentUserEmail = req.query.email; // Assuming the logged-in user's email is sent as a query parameter
+    
+    //     const pipeline = [
+    //       // Match documents where createdBy field matches the currently logged in user
+    //       {
+    //         $match: {
+    //           createdBy: currentUserEmail
+    //         }
+    //       },
+    //       // Lookup to join with adoptRequestCollection based on petId
+    //       {
+    //         $lookup: {
+    //           from: "adoptRequestCollection",
+    //           localField: "_id",
+    //           foreignField: "petId",
+    //           as: "adoptionRequests"
+    //         }
+    //       },
+    //       // Unwind the adoptionRequests array
+    //       {
+    //         $unwind: "$adoptionRequests"
+    //       },
+    //       // Project to show only necessary fields from both collections
+    //       {
+    //         $project: {
+    //           _id: 0,
+    //           petId: "$_id",
+    //           petName: "$name",
+    //           userName: "$adoptionRequests.userName",
+    //           userEmail: "$adoptionRequests.userEmail",
+    //           phoneNumber: "$adoptionRequests.phoneNumber",
+    //           location: "$adoptionRequests.address"
+    //         }
+    //       }
+    //     ];
+    
+    //     const result = await petListCollection.aggregate(pipeline).toArray();
+    
+    //     res.status(200).json(result);
+    //   } catch (error) {
+    //     console.error('Error retrieving adoption requests:', error);
+    //     res.status(500).json({ message: 'Internal server error' });
+    //   }
+    // });
+    
+
+
+    // donate collection save to database
+    
+    // app.get('/userAdoptionRequests', async (req, res) => {
+    //   try {
+    //     const currentUserEmail = req.params.email; // Assuming the user's email is available in req.params.email after authentication
+    
+    //     const pipeline = [
+    //       {
+    //         $match: {
+    //           createdBy: currentUserEmail
+    //         }
+    //       },
+    //       {
+    //         $lookup: {
+    //           from: "petListCollection",
+    //           localField: "petId",
+    //           foreignField: "_id",
+    //           as: "petDetails"
+    //         }
+    //       },
+    //       {
+    //         $unwind: "$petDetails"
+    //       },
+    //       {
+    //         $project: {
+    //           _id: 0,
+    //           petName: "$petDetails.name",
+    //           userName: 1,
+    //           userEmail: 1,
+    //           phoneNumber: 1,
+    //           location: 1
+    //         }
+    //       }
+    //     ];
+    
+    //     const result = await adoptRequestCollection.aggregate(pipeline).toArray();
+    //     res.json(result);
+    //   } catch (error) {
+    //     console.error('Error fetching adoption requests:', error);
+    //     res.status(500).json({ message: 'Internal server error' });
+    //   }
+    // });
+    // app.get('/userAdoptionRequests
+    
+    //userAdoptionRequests
+    app.get('/adoptRequests', async (req, res) => {
+      try {
+        const email = req.query.email;
+        const sortBy = req.query.sortBy; // Field to sort by
+        const sortDirection = req.query.sortDirection || 'asc'; // Sort direction (default: ascending)
+
+        // Construct query
+        const query = { userEmail: email };
+        const sortQuery = {};
+        sortQuery[sortBy] = sortDirection === 'desc' ? -1 : 1; // Sort direction
+
+        // Fetch and sort pet lists
+        const result = await adoptRequestCollection.find(query).sort(sortQuery).toArray();
+
+        res.send(result);
+      }catch (error) {
+        console.error("Error fetching pet lists:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
     app.post('/donate', async (req, res) => {
       const cartItem = req.body;
-      const result = await donateCampaignCollection.insertOne(cartItem)
+      const result = await adoptRequestCollection.insertOne(cartItem)
       res.send(result);
     })
 
-    // app.get('/donate', async (req, res) => {
-    //   const limit = parseInt(req.query.limit) || 3; // Default limit to 3 items
-    //   const offset = parseInt(req.query.offset) || 0;
-    //   let query = {};
 
-    //   // Search by name
-    //   if (req.query.name) {
-    //     query.name = { $regex: req.query.name, $options: 'i' }; // Case-insensitive regex search
-    //   }
-
-    //   // Filter by category
-    //   // if (req.query.category) {
-    //   //   query.category = req.query.category;
-    //   // }
-
-    //   const result = await donateCampaignCollection.find(query).skip(offset).limit(limit).toArray();
-    //   res.send(result);
-    // })
-
+    // fetch donate data
     app.get('/donate', async (req, res) => {
       const limit = parseInt(req.query.limit) || 3;
       const offset = parseInt(req.query.offset) || 0;
@@ -346,13 +506,52 @@ app.get('/petList/:id', async (req, res) => {
       res.send(result);
     })
 
-    app.delete('/donate/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await donateCampaignCollection.deleteOne(query);
-      res.send(result);
 
+
+    // donate by email
+    app.get('/DonateByEmail', async (req, res) => {
+      try {
+        const email = req.query.email;
+        const sortBy = req.query.sortBy; // Field to sort by
+        const sortDirection = req.query.sortDirection || 'asc'; // Sort direction (default: ascending)
+
+        // Construct query
+        const query = { createdBy: email };
+        const sortQuery = {};
+        sortQuery[sortBy] = sortDirection === 'desc' ? -1 : 1; // Sort direction
+
+        // Fetch and sort pet lists
+        const result = await donateCampaignCollection.find(query).sort(sortQuery).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching pet lists:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
+
+
+    app.patch('/donate/:id', async (req, res) => {
+      const item = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+
+          name: item.name,
+          donateAmount: item.donateAmount,
+          lastDate: item.lastDate,
+          shortDescription: item.shortDescription,
+          longDescription: item.longDescription,
+          image: item.image,
+        }
+      }
+      const result = await donateCampaignCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
+
+
+
 
     // payment intetnt
     //   app.post('/create-payment-intent', async(req, res) =>{
