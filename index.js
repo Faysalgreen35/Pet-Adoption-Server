@@ -32,6 +32,7 @@ async function run() {
     const petListCollection = client.db("petAdoptionDb").collection("petLists")
     const adoptRequestCollection = client.db("petAdoptionDb").collection("adoptRequests")
     const donateCampaignCollection = client.db("petAdoptionDb").collection("donateCampaigns")
+    const paymentCollection = client.db("petAdoptionDb").collection("payments")
 
     // JWT related api 
     app.post('/jwt', async (req, res) => {
@@ -77,7 +78,7 @@ async function run() {
 
 
     // user related api 
-    app.get('/users/admin/:email',verifyToken, async (req, res) => {
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
 
       const email = req.params.email;
       if (email !== req.decoded.email) {
@@ -95,7 +96,7 @@ async function run() {
 
 
     //users api
-    app.get('/users',verifyToken, verifyAdmin, async (req, res) => {
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
 
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -130,12 +131,62 @@ async function run() {
       res.send(result);
     })
 
-
-    app.delete('/users/:id', async (req, res) => {
+// delete user 
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(query);
       res.send(result);;
+    })
+    //delete a payment
+    app.delete('/payment/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await paymentCollection.deleteOne(query);
+      res.send(result);;
+    })
+
+
+
+    // all pets 
+    app.get('/allPets', async (req, res) => {
+      // const result = await petListCollection.find().toArray();
+      // res.send(result);
+      try {
+        const sortBy = req.query.sortBy; // Field to sort by
+        const sortDirection = req.query.sortDirection || 'asc'; // Sort direction (default: ascending)
+
+        const sortQuery = {};
+        sortQuery[sortBy] = sortDirection === 'desc' ? -1 : 1; // Sort direction
+
+        // Fetch and sort pet lists
+        const result = await petListCollection.find().sort(sortQuery).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching pet lists:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    })
+
+    // all pets 
+    app.get('/all-donate', async (req, res) => {
+
+      try {
+        const sortBy = req.query.sortBy; // Field to sort by
+        const sortDirection = req.query.sortDirection || 'asc'; // Sort direction (default: ascending)
+
+        const sortQuery = {};
+        sortQuery[sortBy] = sortDirection === 'desc' ? -1 : 1; // Sort direction
+
+        // Fetch and sort pet lists
+        const result = await donateCampaignCollection.find().sort(sortQuery).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching pet lists:", error);
+        res.status(500).send("Internal Server Error");
+      }
     })
 
     // petlists related api
@@ -271,6 +322,26 @@ async function run() {
       }
     });
 
+    app.put('/donate/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const adoptedValue = req.body.adopted;
+
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            adopted: adoptedValue
+          }
+        };
+
+        const result = await donateCampaignCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      } catch (error) {
+        console.error('Error updating adoption status:', error);
+        res.status(500).send('Error updating adoption status');
+      }
+    });
+
 
 
 
@@ -315,6 +386,27 @@ async function run() {
       }
     });
 
+    // my donations 
+    app.get('/donationByEmail', async (req, res) => {
+      try {
+        const email = req.query.email;
+        const sortBy = req.query.sortBy; // Field to sort by
+        const sortDirection = req.query.sortDirection || 'asc'; // Sort direction (default: ascending)
+
+        // Construct query
+        const query = { email: email };
+        const sortQuery = {};
+        sortQuery[sortBy] = sortDirection === 'desc' ? -1 : 1; // Sort direction
+
+        // Fetch and sort pet lists
+        const result = await paymentCollection.find(query).sort(sortQuery).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching pet lists:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
 
 
 
@@ -323,6 +415,14 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await petListCollection.deleteOne(query);
+      res.send(result);
+
+    })
+    // delete a data of donate campaign
+    app.delete('/donate/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await donateCampaignCollection.deleteOne(query);
       res.send(result);
 
     })
@@ -359,9 +459,9 @@ async function run() {
     //     const db = client.db('petAdoptionDb');
     //     const petListCollection = db.collection('petLists');
     //     const adoptRequestCollection = db.collection('adoptRequests');
-    
+
     //     const currentUserEmail = req.query.email; // Assuming the logged-in user's email is sent as a query parameter
-    
+
     //     const pipeline = [
     //       // Match documents where createdBy field matches the currently logged in user
     //       {
@@ -395,24 +495,24 @@ async function run() {
     //         }
     //       }
     //     ];
-    
+
     //     const result = await petListCollection.aggregate(pipeline).toArray();
-    
+
     //     res.status(200).json(result);
     //   } catch (error) {
     //     console.error('Error retrieving adoption requests:', error);
     //     res.status(500).json({ message: 'Internal server error' });
     //   }
     // });
-    
+
 
 
     // donate collection save to database
-    
+
     // app.get('/userAdoptionRequests', async (req, res) => {
     //   try {
     //     const currentUserEmail = req.params.email; // Assuming the user's email is available in req.params.email after authentication
-    
+
     //     const pipeline = [
     //       {
     //         $match: {
@@ -441,7 +541,7 @@ async function run() {
     //         }
     //       }
     //     ];
-    
+
     //     const result = await adoptRequestCollection.aggregate(pipeline).toArray();
     //     res.json(result);
     //   } catch (error) {
@@ -450,8 +550,9 @@ async function run() {
     //   }
     // });
     // app.get('/userAdoptionRequests
-    
+
     //userAdoptionRequests
+
     app.get('/adoptRequests', async (req, res) => {
       try {
         const email = req.query.email;
@@ -467,18 +568,23 @@ async function run() {
         const result = await adoptRequestCollection.find(query).sort(sortQuery).toArray();
 
         res.send(result);
-      }catch (error) {
+      } catch (error) {
         console.error("Error fetching pet lists:", error);
         res.status(500).send("Internal Server Error");
       }
     });
 
+    // donate save to database
     app.post('/donate', async (req, res) => {
       const cartItem = req.body;
-      const result = await adoptRequestCollection.insertOne(cartItem)
+      const result = await donateCampaignCollection.insertOne(cartItem)
       res.send(result);
     })
 
+    // app.get('/donate', async (req, res) => {
+    //       const result = await donateCampaignCollection.find().toArray();
+    //       res.send(result);
+    //     })
 
     // fetch donate data
     app.get('/donate', async (req, res) => {
@@ -539,7 +645,7 @@ async function run() {
         $set: {
 
           name: item.name,
-          donateAmount: item.donateAmount,
+          maximumDonationAmount: item.maximumDonationAmount,
           lastDate: item.lastDate,
           shortDescription: item.shortDescription,
           longDescription: item.longDescription,
@@ -554,34 +660,34 @@ async function run() {
 
 
     // payment intetnt
-    //   app.post('/create-payment-intent', async(req, res) =>{
-    //     const {price} = req.body;
-    //     const amount = parseInt(price * 100);
-    //     const paymentIntent = await stripe.paymentIntents.create({
-    //       amount : amount,
-    //       currency: "usd",
-    //       payment_method_types: ['card']
-    //     });
-    //     res.send({
-    //       clientSecret: paymentIntent.client_secret,
-    //     })
+    app.post('/create-payment-intent', async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ['card']
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      })
 
-    //   })
+    })
 
-    //   app.post('/payments', async(req, res)=>{
-    //     const payment = req.body;
-    //     const paymentResult = await paymentCollection.insertOne(payment);
+    app.post('/payments', async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
 
-    //     // carefully delete each item from the cart
-    //     console.log('payment info', payment);
-    //     const query = {_id: {
-    //       $in: payment.cartIds.map(id => new ObjectId(id))
-    //     }};
+      // carefully delete each item from the cart
+      console.log('payment info', payment);
+      // const query = {_id: {
+      //   $in: payment.cartIds.map(id => new ObjectId(id))
+      // }};
 
-    //     const deleteResult = await cartCollection.deleteMany(query);
-    //   res.send({paymentResult, deleteResult});
+      // const deleteResult = await cartCollection.deleteMany(query);
+      res.send({ paymentResult });
 
-    //   })
+    })
 
     //stats or analytics
     //   app.get('/admin-stats',verifyToken,verifyAdmin,async(req,res)=>{
