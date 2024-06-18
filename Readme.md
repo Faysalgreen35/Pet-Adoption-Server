@@ -51,5 +51,5 @@ To set up the project locally, follow these steps:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/programming-hero-web-course1/b9a12-server-side-Faysalgreen35
+git clone https://github.com/programming-hero-web-course1/b9a12-server-side-Faysalgreen35](https://github.com/Faysalgreen35/Pet-Adoption-Server
    cd pet-adoption-server
