@@ -46,10 +46,20 @@ Tanstack Query is a data-fetching library for React that simplifies data synchro
 ## Stripe Payment for Donations
 Stripe is integrated to handle secure and reliable payment processing for donations. Users can easily contribute to donation campaigns through a seamless payment experience, supporting the cause of pet adoption and welfare.
 
-## Installation and Setup
-To set up the project locally, follow these steps:
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Faysalgreen35/Pet-Adoption-Server
-   cd pet-adoption-server
+## How to Run Locally
+1. **Clone the repository:**
+    ```bash
+    git clone https://github.com/Faysalgreen35/ProductPulse.git
+    ```
+2. **Navigate to the project directory:**
+    ```bash
+    cd ProductPulse
+    ```
+3. **Install dependencies:**
+    ```bash
+    npm install
+    ```
+4. **Run the application:**
+    ```bash
+    npm run dev
+    ```
