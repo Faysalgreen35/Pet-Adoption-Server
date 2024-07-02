@@ -49,7 +49,7 @@ Stripe is integrated to handle secure and reliable payment processing for donati
 ## How to Run Locally
 1. **Clone the repository:**
     ```bash
-    git clone https://github.com/Faysalgreen35/ProductPulse.git
+    git clone https://github.com/Faysalgreen35/Pet-Adoption-Server
     ```
 2. **Navigate to the project directory:**
     ```bash
