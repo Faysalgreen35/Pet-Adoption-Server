@@ -53,7 +53,7 @@ Stripe is integrated to handle secure and reliable payment processing for donati
     ```
 2. **Navigate to the project directory:**
     ```bash
-    cd ProductPulse
+    cd Pet-Adoption-Server
     ```
 3. **Install dependencies:**
     ```bash
